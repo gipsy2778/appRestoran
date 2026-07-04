@@ -1,0 +1,81 @@
+<?php
+
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ManagerController;
+use App\Http\Controllers\KasirController;
+
+// Auth
+Route::get('/', fn() => redirect()->route('login'));
+Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
+Route::post('/login', [AuthController::class, 'login']);
+Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+
+// Manager
+Route::middleware(['auth', 'role:manager'])->prefix('manager')->name('manager.')->group(function () {
+    Route::get('/dashboard', [ManagerController::class, 'dashboard'])->name('dashboard');
+
+    // Bahan Baku
+    Route::resource('bahan-baku', \App\Http\Controllers\BahanBakuController::class)->only([
+        'index', 'store', 'update', 'destroy'
+    ])->names([
+        'index'   => 'bahan-baku.index',
+        'store'   => 'bahan-baku.store',
+        'update'  => 'bahan-baku.update',
+        'destroy' => 'bahan-baku.destroy',
+    ]);
+
+    // Menu
+    Route::resource('menu', \App\Http\Controllers\MenuController::class)->only([
+        'index', 'store', 'update', 'destroy'
+    ])->names([
+        'index'   => 'menu.index',
+        'store'   => 'menu.store',
+        'update'  => 'menu.update',
+        'destroy' => 'menu.destroy',
+    ]);
+
+    // Resep
+    Route::get('/resep', [\App\Http\Controllers\ResepController::class, 'index'])->name('resep.index');
+    Route::post('/resep', [\App\Http\Controllers\ResepController::class, 'store'])->name('resep.store');
+    Route::delete('/resep/{resepDetail}', [\App\Http\Controllers\ResepController::class, 'destroy'])->name('resep.destroy');
+
+    // Pengguna
+    Route::get('/pengguna', [\App\Http\Controllers\PenggunaController::class, 'index'])->name('pengguna.index');
+    Route::post('/pengguna', [\App\Http\Controllers\PenggunaController::class, 'store'])->name('pengguna.store');
+    Route::put('/pengguna/{user}', [\App\Http\Controllers\PenggunaController::class, 'update'])->name('pengguna.update');
+    Route::delete('/pengguna/{user}', [\App\Http\Controllers\PenggunaController::class, 'destroy'])->name('pengguna.destroy');
+
+    // Batch
+    Route::get('/batch', [\App\Http\Controllers\BatchController::class, 'index'])->name('batch.index');
+    Route::post('/batch', [\App\Http\Controllers\BatchController::class, 'store'])->name('batch.store');
+    Route::delete('/batch/{batch}', [\App\Http\Controllers\BatchController::class, 'destroy'])->name('batch.destroy');
+
+    // Food Wastage
+    Route::get('/food-wastage', [ManagerController::class, 'foodWastageIndex'])->name('food-wastage.index');
+
+    // Notifikasi
+    Route::get('/notifikasi', [ManagerController::class, 'notifikasiIndex'])->name('notifikasi.index');
+
+    // Laporan
+    Route::get('/laporan', [ManagerController::class, 'laporanIndex'])->name('laporan.index');
+});
+
+// Kasir
+Route::middleware(['auth', 'role:kasir'])->prefix('kasir')->name('kasir.')->group(function () {
+    Route::get('/dashboard', [KasirController::class, 'dashboard'])->name('dashboard');
+
+    // Transaksi
+    Route::get('/transaksi', [\App\Http\Controllers\TransaksiController::class, 'index'])->name('transaksi.index');
+    Route::get('/transaksi/buat', [\App\Http\Controllers\TransaksiController::class, 'create'])->name('transaksi.create');
+    Route::post('/transaksi', [\App\Http\Controllers\TransaksiController::class, 'store'])->name('transaksi.store');
+    Route::get('/transaksi/{id}/struk', [\App\Http\Controllers\TransaksiController::class, 'struk'])->name('transaksi.struk');
+    Route::post('/transaksi/{id}/batal', [\App\Http\Controllers\TransaksiController::class, 'batal'])->name('transaksi.batal');
+
+    // Menu
+    Route::get('/menu', [KasirController::class, 'menuIndex'])->name('menu.index');
+});
+
+// Notifikasi fetch (polling)
+Route::middleware('auth')->get('/notifikasi/fetch', [ManagerController::class, 'notifikasiFetch']);
+Route::middleware('auth')->get('/notifikasi/{id}/baca', [ManagerController::class, 'notifikasiBaca']);

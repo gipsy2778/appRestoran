@@ -1,0 +1,175 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Menu;
+use App\Models\Batch;
+use App\Models\Transaksi;
+use App\Models\TransaksiDetail;
+use App\Models\BahanBaku;
+use Illuminate\Http\Request;
+use Carbon\Carbon;
+
+class TransaksiController extends Controller
+{
+    public function index()
+    {
+        $transaksi = Transaksi::with('kasir')->latest()->get();
+        return view('kasir.transaksi', compact('transaksi'));
+    }
+
+    public function create()
+    {
+        $menu = Menu::with('resepDetail.bahanBaku')->get();
+        return view('kasir.buat_transaksi', compact('menu'));
+    }
+
+    public function store(Request $request)
+    {
+        $request->validate([
+            'menu'     => 'required|array|min:1',
+            'menu.*'   => 'exists:menu,id',
+            'qty'      => 'required|array',
+            'qty.*'    => 'integer|min:1',
+        ]);
+
+        // Cek stok untuk semua menu yang dipesan
+        foreach ($request->menu as $index => $menuId) {
+            $qty = $request->qty[$index];
+            $menuItem = Menu::with('resepDetail.bahanBaku')->findOrFail($menuId);
+
+            foreach ($menuItem->resepDetail as $resep) {
+                $stokTotal = Batch::where('bahan_id', $resep->bahan_id)
+                    ->where('status', 'aktif')
+                    ->sum('qty_sisa');
+
+                $kebutuhan = $resep->jumlah * $qty;
+
+                if ($stokTotal < $kebutuhan) {
+                    return back()->with('error', 'Stok ' . $resep->bahanBaku->nama_bahan . ' tidak cukup untuk menu ' . $menuItem->nama_menu . '.');
+                }
+            }
+        }
+
+        // Buat kode transaksi
+        $kode = 'TRX-' . Carbon::now()->format('Ymd') . '-' . str_pad(Transaksi::whereDate('created_at', Carbon::today())->count() + 1, 3, '0', STR_PAD_LEFT);
+
+        // Hitung total harga
+        $totalHarga = 0;
+        foreach ($request->menu as $index => $menuId) {
+            $menuItem = Menu::findOrFail($menuId);
+            $totalHarga += $menuItem->harga * $request->qty[$index];
+        }
+
+        // Simpan transaksi
+        $transaksi = Transaksi::create([
+            'kode_transaksi' => $kode,
+            'kasir_id'       => auth()->id(),
+            'total_harga'    => $totalHarga,
+            'status'         => 'selesai',
+        ]);
+
+        // Simpan detail & potong stok FIFO
+        foreach ($request->menu as $index => $menuId) {
+            $qty = $request->qty[$index];
+            $menuItem = Menu::with('resepDetail')->findOrFail($menuId);
+
+            TransaksiDetail::create([
+                'transaksi_id' => $transaksi->id,
+                'menu_id'      => $menuItem->id,
+                'nama_menu'    => $menuItem->nama_menu,
+                'harga'        => $menuItem->harga,
+                'qty'          => $qty,
+                'subtotal'     => $menuItem->harga * $qty,
+            ]);
+
+            // Potong stok FIFO per bahan
+            foreach ($menuItem->resepDetail as $resep) {
+                $kebutuhan = $resep->jumlah * $qty;
+                $this->potongStokFIFO($resep->bahan_id, $kebutuhan);
+            }
+        }
+
+        return redirect()->route('kasir.transaksi.struk', $transaksi->id)
+            ->with('success', 'Transaksi berhasil disimpan.');
+    }
+
+    public function struk($id)
+    {
+        $transaksi = Transaksi::with('detail', 'kasir')->findOrFail($id);
+        return view('kasir.struk', compact('transaksi'));
+    }
+
+    public function batal($id)
+    {
+        $transaksi = Transaksi::with('detail.menu')->findOrFail($id);
+
+        if ($transaksi->status === 'dibatalkan') {
+            return back()->with('error', 'Transaksi sudah dibatalkan sebelumnya.');
+        }
+
+        // Rollback stok
+        foreach ($transaksi->detail as $detail) {
+            $menuItem = Menu::with('resepDetail')->findOrFail($detail->menu_id);
+            foreach ($menuItem->resepDetail as $resep) {
+                $kebutuhan = $resep->jumlah * $detail->qty;
+                $this->rollbackStok($resep->bahan_id, $kebutuhan);
+            }
+        }
+
+        $transaksi->update([
+            'status'          => 'dibatalkan',
+            'dibatalkan_oleh' => auth()->id(),
+            'dibatalkan_at'   => Carbon::now(),
+        ]);
+
+        return back()->with('success', 'Transaksi berhasil dibatalkan dan stok dikembalikan.');
+    }
+
+    private function potongStokFIFO($bahanId, $kebutuhan)
+    {
+        $batches = Batch::where('bahan_id', $bahanId)
+            ->where('status', 'aktif')
+            ->where('qty_sisa', '>', 0)
+            ->orderBy('tanggal_expired', 'asc')
+            ->get();
+
+        foreach ($batches as $batch) {
+            if ($kebutuhan <= 0) break;
+
+            if ($batch->qty_sisa >= $kebutuhan) {
+                $batch->qty_sisa -= $kebutuhan;
+                $kebutuhan = 0;
+            } else {
+                $kebutuhan -= $batch->qty_sisa;
+                $batch->qty_sisa = 0;
+            }
+
+            if ($batch->qty_sisa == 0) {
+                $batch->status = 'habis';
+            }
+
+            $batch->save();
+        }
+
+        // Cek notifikasi stok minimum
+        $bahan = BahanBaku::findOrFail($bahanId);
+        BatchController::cekNotifikasiStokMinimum($bahan);
+    }
+
+    private function rollbackStok($bahanId, $jumlah)
+    {
+        // Kembalikan ke batch terbaru yang masih aktif atau habis
+        $batch = Batch::where('bahan_id', $bahanId)
+            ->orderBy('tanggal_expired', 'asc')
+            ->first();
+
+        if ($batch) {
+            $batch->qty_sisa += $jumlah;
+            if ($batch->qty_sisa > 0) {
+                $batch->status = 'aktif';
+            }
+            $batch->save();
+        }
+    }
+}
