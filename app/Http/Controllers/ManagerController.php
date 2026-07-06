@@ -11,35 +11,23 @@ class ManagerController extends Controller
         return view('manager.dashboard');
     }
 
-    public function foodWastageIndex()
-    {
-        return view('manager.food_wastage');
-    }
-
-    public function notifikasiIndex()
-    {
-        return view('manager.notifikasi');
-    }
-
     public function laporanIndex()
     {
-        return view('manager.laporan');
-    }
-
-    public function notifikasiFetch()
-    {
-        $notifikasi = Notifikasi::where('user_id', auth()->id())
-            ->where('status', 'belum_dibaca')
+        $transaksi = \App\Models\Transaksi::with('kasir', 'detail')
             ->latest()
             ->get();
 
-        return response()->json($notifikasi);
-    }
+        $foodWastage = \App\Models\FoodWastage::with('batch.bahanBaku', 'pelapor')
+            ->latest()
+            ->get();
 
-    public function notifikasiBaca($id)
-    {
-        $notif = Notifikasi::findOrFail($id);
-        $notif->update(['status' => 'dibaca']);
-        return redirect()->back();
+        $stok = \App\Models\BahanBaku::with(['batch' => function($q) {
+            $q->where('status', 'aktif');
+        }])->get()->map(function($bahan) {
+            $bahan->stok_total = $bahan->batch->sum('qty_sisa');
+            return $bahan;
+        });
+
+        return view('manager.laporan', compact('transaksi', 'foodWastage', 'stok'));
     }
 }

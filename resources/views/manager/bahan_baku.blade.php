@@ -10,10 +10,6 @@
     </button>
 </div>
 
-@if(session('success'))
-    <div class="alert alert-success">{{ session('success') }}</div>
-@endif
-
 <div class="card shadow-sm">
     <div class="card-body">
         <table class="table table-hover align-middle">
@@ -40,7 +36,7 @@
                         @endif
                     </td>
                     <td>{{ $bahan->satuan }}</td>
-                    <td>{{ $bahan->stok_minimum }}</td>
+                    <td>{{ $bahan->stok_minimum }} {{ $bahan->satuan }}</td>
                     <td>
                         <button class="btn btn-sm btn-warning"
                             data-bs-toggle="modal"
@@ -96,11 +92,17 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Satuan</label>
-                        <input type="text" name="satuan" class="form-control" placeholder="kg, liter, pcs" required>
+                        <select name="satuan" class="form-select" required>
+                            <option value="">-- Pilih Satuan --</option>
+                            <option value="potong">Potong</option>
+                            <option value="kg">Kg</option>
+                            <option value="liter">Liter</option>
+                            <option value="pcs">Pcs</option>
+                        </select>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Stok Minimum</label>
-                        <input type="number" name="stok_minimum" class="form-control" step="0.01" required>
+                        <input type="number" name="stok_minimum" class="form-control" step="0.01" min="0" required>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -137,11 +139,17 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Satuan</label>
-                        <input type="text" name="satuan" id="editSatuan" class="form-control" required>
+                        <select name="satuan" id="editSatuan" class="form-select" required>
+                            <option value="">-- Pilih Satuan --</option>
+                            <option value="potong">Potong</option>
+                            <option value="kg">Kg</option>
+                            <option value="liter">Liter</option>
+                            <option value="pcs">Pcs</option>
+                        </select>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Stok Minimum</label>
-                        <input type="number" name="stok_minimum" id="editMinimum" class="form-control" step="0.01" required>
+                        <input type="number" name="stok_minimum" id="editMinimum" class="form-control" step="0.01" min="0" required>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -152,7 +160,6 @@
         </div>
     </div>
 </div>
-
 @endsection
 
 @push('scripts')

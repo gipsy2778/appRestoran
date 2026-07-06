@@ -52,11 +52,14 @@ Route::middleware(['auth', 'role:manager'])->prefix('manager')->name('manager.')
     Route::delete('/batch/{batch}', [\App\Http\Controllers\BatchController::class, 'destroy'])->name('batch.destroy');
 
     // Food Wastage
-    Route::get('/food-wastage', [ManagerController::class, 'foodWastageIndex'])->name('food-wastage.index');
-
+    Route::get('/food-wastage', [\App\Http\Controllers\FoodWastageController::class, 'index'])->name('food-wastage.index');
+    Route::post('/food-wastage', [\App\Http\Controllers\FoodWastageController::class, 'store'])->name('food-wastage.store');
+    
     // Notifikasi
-    Route::get('/notifikasi', [ManagerController::class, 'notifikasiIndex'])->name('notifikasi.index');
-
+    Route::get('/notifikasi', [\App\Http\Controllers\NotifikasiController::class, 'index'])->name('notifikasi.index');
+    Route::get('/notifikasi/{id}/baca', [\App\Http\Controllers\NotifikasiController::class, 'baca'])->name('notifikasi.baca');
+    Route::get('/notifikasi/baca-semua', [\App\Http\Controllers\NotifikasiController::class, 'bacaSemua'])->name('notifikasi.baca-semua');
+    
     // Laporan
     Route::get('/laporan', [ManagerController::class, 'laporanIndex'])->name('laporan.index');
 });
@@ -77,5 +80,4 @@ Route::middleware(['auth', 'role:kasir'])->prefix('kasir')->name('kasir.')->grou
 });
 
 // Notifikasi fetch (polling)
-Route::middleware('auth')->get('/notifikasi/fetch', [ManagerController::class, 'notifikasiFetch']);
-Route::middleware('auth')->get('/notifikasi/{id}/baca', [ManagerController::class, 'notifikasiBaca']);
+Route::middleware('auth')->get('/notifikasi/fetch', [\App\Http\Controllers\NotifikasiController::class, 'fetch']);

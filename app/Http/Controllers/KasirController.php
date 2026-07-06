@@ -11,6 +11,7 @@ class KasirController extends Controller
 
     public function menuIndex()
     {
-        return view('kasir.menu');
+        $menu = \App\Models\Menu::with('resepDetail.bahanBaku')->get();
+        return view('kasir.menu', compact('menu'));
     }
 }
