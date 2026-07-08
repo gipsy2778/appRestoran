@@ -32,7 +32,7 @@ class FoodWastageController extends Controller
 
         FoodWastage::create([
             'batch_id'   => $request->batch_id,
-            'pelapor_id' => auth()->id(),
+            'pelapor_id' => auth()->user()->id,
             'jumlah'     => $request->jumlah,
             'alasan'     => $request->alasan,
         ]);

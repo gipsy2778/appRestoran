@@ -34,7 +34,7 @@ class BatchController extends Controller
         $suffix = Batch::where('bahan_id', $request->bahan_id)
             ->whereDate('tanggal_masuk', $request->tanggal_masuk)
             ->count() + 1;
-        $kode_batch = $kode_bahan . '-' . $tanggal . '-' . str_pad($suffix, 2, '0', STR_PAD_LEFT);
+        $kode_batch = $kode_bahan . $bahan->id . '-' . $tanggal . '-' . str_pad($suffix, 2, '0', STR_PAD_LEFT);
 
         $batch = Batch::create([
             'bahan_id'        => $request->bahan_id,
@@ -44,7 +44,7 @@ class BatchController extends Controller
             'tanggal_masuk'   => $request->tanggal_masuk,
             'tanggal_expired' => $request->tanggal_expired,
             'status'          => 'aktif',
-            'input_by'        => auth()->id(),
+            'input_by'        => auth()->user()->id,
         ]);
 
         // Cek notifikasi expired warning (H-3)
@@ -66,13 +66,22 @@ class BatchController extends Controller
         if ($hariTersisa <= 3 && $hariTersisa >= 0) {
             $managers = \App\Models\User::where('role', 'manager')->get();
             foreach ($managers as $manager) {
-                Notifikasi::create([
-                    'user_id' => $manager->id,
-                    'judul'   => 'Bahan Mendekati Kedaluwarsa',
-                    'pesan'   => $batch->bahanBaku->nama_bahan . ' (Batch ' . $batch->kode_batch . ') akan kedaluwarsa dalam ' . $hariTersisa . ' hari.',
-                    'tipe'    => 'expired_warning',
-                    'status'  => 'belum_dibaca',
-                ]);
+                // Cek duplikasi per hari per batch
+                $sudahAda = Notifikasi::where('user_id', $manager->id)
+                    ->where('tipe', 'expired_warning')
+                    ->whereDate('created_at', Carbon::today())
+                    ->where('pesan', 'like', '%' . $batch->kode_batch . '%')
+                    ->exists();
+
+                if (!$sudahAda) {
+                    Notifikasi::create([
+                        'user_id' => $manager->id,
+                        'judul'   => 'Bahan Mendekati Kedaluwarsa',
+                        'pesan'   => $batch->bahanBaku->nama_bahan . ' (Batch ' . $batch->kode_batch . ') akan kedaluwarsa dalam ' . $hariTersisa . ' hari.',
+                        'tipe'    => 'expired_warning',
+                        'status'  => 'belum_dibaca',
+                    ]);
+                }
             }
         }
     }
@@ -86,7 +95,6 @@ class BatchController extends Controller
         if ($stokTotal <= $bahan->stok_minimum) {
             $managers = \App\Models\User::where('role', 'manager')->get();
             foreach ($managers as $manager) {
-                // Cek apakah notifikasi serupa sudah ada hari ini
                 $sudahAda = Notifikasi::where('user_id', $manager->id)
                     ->where('tipe', 'stok_minimum')
                     ->whereDate('created_at', Carbon::today())

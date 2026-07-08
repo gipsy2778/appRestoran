@@ -64,7 +64,7 @@ class TransaksiController extends Controller
         // Simpan transaksi
         $transaksi = Transaksi::create([
             'kode_transaksi' => $kode,
-            'kasir_id'       => auth()->id(),
+            'kasir_id'       => auth()->user()->id,
             'total_harga'    => $totalHarga,
             'status'         => 'selesai',
         ]);
@@ -119,7 +119,7 @@ class TransaksiController extends Controller
 
         $transaksi->update([
             'status'          => 'dibatalkan',
-            'dibatalkan_oleh' => auth()->id(),
+            'dibatalkan_oleh' => auth()->user()->id,
             'dibatalkan_at'   => Carbon::now(),
         ]);
 
