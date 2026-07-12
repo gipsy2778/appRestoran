@@ -121,5 +121,24 @@
             updateRingkasan();
         }
     });
+
+    document.getElementById('formTransaksi').addEventListener('submit', function(e) {
+        // Disable semua qty-field yang tidak dicentang
+        document.querySelectorAll('.menu-check').forEach(function(check) {
+            const qtyField = check.closest('.card-body').querySelector('.qty-field');
+            if (!check.checked) {
+                qtyField.disabled = true;
+            }
+        });
+
+        // Validasi minimal satu menu dipilih
+        const ada = document.querySelectorAll('.menu-check:checked').length;
+        if (ada === 0) {
+            e.preventDefault();
+            alert('Pilih minimal satu menu terlebih dahulu.');
+            // Re-enable semua qty supaya tidak broken kalau user mau pilih lagi
+            document.querySelectorAll('.qty-field').forEach(f => f.disabled = false);
+        }
+    });
 </script>
 @endpush

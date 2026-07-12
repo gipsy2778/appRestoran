@@ -52,7 +52,7 @@ class NotifikasiController extends Controller
             ->get();
 
         foreach ($batches as $batch) {
-            $hariTersisa = Carbon::now()->diffInDays(
+            $hariTersisa = (int) Carbon::now()->diffInDays(
                 Carbon::parse($batch->tanggal_expired), false
             );
 
@@ -67,10 +67,18 @@ class NotifikasiController extends Controller
                         ->exists();
 
                     if (!$sudahAda) {
+                        if ($hariTersisa == 0) {
+                            $pesanHari = 'hari ini';
+                        } elseif ($hariTersisa == 1) {
+                            $pesanHari = 'besok';
+                        } else {
+                            $pesanHari = 'dalam ' . $hariTersisa . ' hari';
+                        }
+
                         Notifikasi::create([
                             'user_id' => $manager->id,
-                            'judul'   => 'Bahan Mendekati Kedaluwarsa',
-                            'pesan'   => $batch->bahanBaku->nama_bahan . ' (Batch ' . $batch->kode_batch . ') akan kedaluwarsa dalam ' . $hariTersisa . ' hari.',
+                            'judul'   => $hariTersisa == 0 ? 'Bahan Kedaluwarsa Hari Ini' : 'Bahan Mendekati Kedaluwarsa',
+                            'pesan'   => $batch->bahanBaku->nama_bahan . ' (Batch ' . $batch->kode_batch . ') kedaluwarsa ' . $pesanHari . '.',
                             'tipe'    => 'expired_warning',
                             'status'  => 'belum_dibaca',
                         ]);
@@ -78,5 +86,19 @@ class NotifikasiController extends Controller
                 }
             }
         }
+    }
+    
+    public function hapus($id)
+    {
+        Notifikasi::where('id', $id)
+            ->where('user_id', auth()->user()->id)
+            ->delete();
+        return back()->with('success', 'Notifikasi berhasil dihapus.');
+    }
+
+    public function hapusSemua()
+    {
+        Notifikasi::where('user_id', auth()->user()->id)->delete();
+        return back()->with('success', 'Semua notifikasi berhasil dihapus.');
     }
 }

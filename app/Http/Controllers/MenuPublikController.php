@@ -2,18 +2,15 @@
 
 namespace App\Http\Controllers;
 
-class KasirController extends Controller
+use App\Models\Menu;
+use App\Models\Batch;
+
+class MenuPublikController extends Controller
 {
-    public function dashboard()
+    public function index()
     {
-        return view('kasir.dashboard');
-    }   
+        $menu = Menu::with('resepDetail.bahanBaku')->get();
 
-    public function menuIndex()
-    {
-        $menu = \App\Models\Menu::with('resepDetail.bahanBaku')->get();
-
-        // Hitung maks porsi per menu
         foreach ($menu as $m) {
             if ($m->resepDetail->count() === 0) {
                 $m->maks_porsi = 0;
@@ -22,7 +19,7 @@ class KasirController extends Controller
 
             $maksPorsi = PHP_INT_MAX;
             foreach ($m->resepDetail as $resep) {
-                $stokTotal = \App\Models\Batch::where('bahan_id', $resep->bahan_id)
+                $stokTotal = Batch::where('bahan_id', $resep->bahan_id)
                     ->where('status', 'aktif')
                     ->sum('qty_sisa');
 
@@ -35,6 +32,12 @@ class KasirController extends Controller
             $m->maks_porsi = $maksPorsi === PHP_INT_MAX ? 0 : $maksPorsi;
         }
 
-        return view('kasir.menu', compact('menu'));
+        return view('publik.menu', compact('menu'));
+    }
+
+    public function qrcode()
+    {
+        $url = url('/menu-publik');
+        return view('manager.qrcode', compact('url'));
     }
 }

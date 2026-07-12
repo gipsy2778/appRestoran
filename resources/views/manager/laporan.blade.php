@@ -48,9 +48,9 @@
                                     <span class="badge bg-success">Tahan Lama</span>
                                 @endif
                             </td>
-                            <td>{{ $s->stok_total }}</td>
+                            <td>{{ formatAngka($s->stok_total) }}</td>
                             <td>{{ $s->satuan }}</td>
-                            <td>{{ $s->stok_minimum }}</td>
+                            <td>{{ formatAngka($s->stok_minimum) }}</td>
                             <td>
                                 @if($s->stok_total <= $s->stok_minimum)
                                     <span class="badge bg-danger">Stok Menipis</span>
@@ -134,7 +134,7 @@
                             <td>{{ $loop->iteration }}</td>
                             <td><span class="badge bg-secondary">{{ $fw->batch->kode_batch }}</span></td>
                             <td>{{ $fw->batch->bahanBaku->nama_bahan }}</td>
-                            <td>{{ $fw->jumlah }} {{ $fw->batch->bahanBaku->satuan }}</td>
+                            <td>{{ formatAngka($fw->jumlah) }} {{ $fw->batch->bahanBaku->satuan }}</td>
                             <td>{{ $fw->alasan }}</td>
                             <td>{{ $fw->pelapor->nama }}</td>
                             <td>{{ \Carbon\Carbon::parse($fw->created_at)->format('d/m/Y H:i') }}</td>

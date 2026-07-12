@@ -8,9 +8,6 @@
     <a href="{{ route('manager.menu.index') }}" class="{{ request()->routeIs('manager.menu.*') ? 'active' : '' }}">
         <i class="bi bi-menu-button-wide me-2"></i> Menu
     </a>
-    <a href="{{ route('manager.resep.index') }}" class="{{ request()->routeIs('manager.resep.*') ? 'active' : '' }}">
-        <i class="bi bi-journal-text me-2"></i> Resep
-    </a>
     <a href="{{ route('manager.pengguna.index') }}" class="{{ request()->routeIs('manager.pengguna.*') ? 'active' : '' }}">
         <i class="bi bi-people me-2"></i> Pengguna
     </a>
@@ -29,6 +26,9 @@
     </a>
     <a href="{{ route('manager.laporan.index') }}" class="{{ request()->routeIs('manager.laporan.*') ? 'active' : '' }}">
         <i class="bi bi-bar-chart me-2"></i> Laporan
+    </a>
+    <a href="{{ route('manager.qrcode') }}" class="{{ request()->routeIs('manager.qrcode') ? 'active' : '' }}">
+        <i class="bi bi-qr-code me-2"></i> QR Code Menu
     </a>
 
 @elseif($role === 'kasir')

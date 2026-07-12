@@ -9,37 +9,31 @@ use Illuminate\Http\Request;
 
 class ResepController extends Controller
 {
-    public function index()
-    {
-        $menu = Menu::with('resepDetail.bahanBaku')->get();
-        $bahanBaku = BahanBaku::all();
-        return view('manager.resep', compact('menu', 'bahanBaku'));
-    }
-
-    public function store(Request $request)
+    public function simpan(Request $request, $menuId)
     {
         $request->validate([
-            'menu_id'  => 'required|exists:menu,id',
-            'bahan_id' => 'required|exists:bahan_baku,id',
-            'jumlah'   => 'required|numeric|min:0',
+            'bahan_id'   => 'required|array|min:1',
+            'bahan_id.*' => 'exists:bahan_baku,id',
+            'jumlah'     => 'required|array',
+            'jumlah.*'   => 'numeric|min:0.01',
         ]);
 
-        // Cek apakah kombinasi menu+bahan sudah ada
-        $exists = ResepDetail::where('menu_id', $request->menu_id)
-            ->where('bahan_id', $request->bahan_id)
-            ->exists();
-
-        if ($exists) {
-            return back()->with('error', 'Bahan ini sudah ada di resep menu tersebut.');
+        // Cek duplikasi bahan dalam satu resep
+        if (count($request->bahan_id) !== count(array_unique($request->bahan_id))) {
+            return back()->with('error', 'Terdapat bahan yang sama dalam resep.');
         }
 
-        ResepDetail::create($request->all());
-        return back()->with('success', 'Resep berhasil ditambahkan.');
-    }
+        // Hapus resep lama lalu simpan yang baru
+        ResepDetail::where('menu_id', $menuId)->delete();
 
-    public function destroy(ResepDetail $resepDetail)
-    {
-        $resepDetail->delete();
-        return back()->with('success', 'Resep berhasil dihapus.');
+        foreach ($request->bahan_id as $index => $bahanId) {
+            ResepDetail::create([
+                'menu_id'  => $menuId,
+                'bahan_id' => $bahanId,
+                'jumlah'   => $request->jumlah[$index],
+            ]);
+        }
+
+        return back()->with('success', 'Resep berhasil disimpan.');
     }
 }

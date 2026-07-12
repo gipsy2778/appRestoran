@@ -2,6 +2,11 @@
 
 @section('title', 'Batch & Stok Masuk')
 
+<style>
+    table tbody tr.row-expired td { background-color: #e74c3c !important; color: #fff !important; }
+    table tbody tr.row-warning td { background-color: #f0ad4e !important; color: #000 !important; }
+</style>
+
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h4 class="fw-bold mb-0">Batch & Stok Masuk</h4>
@@ -12,7 +17,7 @@
 
 <div class="card shadow-sm">
     <div class="card-body">
-        <table class="table table-hover align-middle">
+        <table class="table align-middle">
             <thead class="table-dark">
                 <tr>
                     <th>#</th>
@@ -28,12 +33,22 @@
             </thead>
             <tbody>
                 @forelse($batch as $b)
-                <tr class="{{ Carbon\Carbon::parse($b->tanggal_expired)->diffInDays(now(), false) >= 0 ? 'table-danger' : (Carbon\Carbon::parse($b->tanggal_expired)->diffInDays(now(), false) >= -3 ? 'table-warning' : '') }}">
+                @php
+                    $hariTersisa = (int) \Carbon\Carbon::now()->diffInDays(\Carbon\Carbon::parse($b->tanggal_expired), false);
+                    if ($hariTersisa < 0) {
+                        $rowClass = 'row-expired';
+                    } elseif ($hariTersisa <= 3) {
+                        $rowClass = 'row-warning';
+                    } else {
+                        $rowClass = '';
+                    }
+                @endphp
+                <tr class="{{ $rowClass }}">
                     <td>{{ $loop->iteration }}</td>
                     <td><span class="badge bg-secondary">{{ $b->kode_batch }}</span></td>
                     <td>{{ $b->bahanBaku->nama_bahan }}</td>
-                    <td>{{ $b->qty_awal }} {{ $b->bahanBaku->satuan }}</td>
-                    <td>{{ $b->qty_sisa }} {{ $b->bahanBaku->satuan }}</td>
+                    <td>{{ formatAngka($b->qty_awal) }} {{ $b->bahanBaku->satuan }}</td>
+                    <td>{{ formatAngka($b->qty_sisa) }} {{ $b->bahanBaku->satuan }}</td>
                     <td>{{ \Carbon\Carbon::parse($b->tanggal_masuk)->format('d/m/Y') }}</td>
                     <td>{{ \Carbon\Carbon::parse($b->tanggal_expired)->format('d/m/Y') }}</td>
                     <td>
@@ -62,8 +77,8 @@
             </tbody>
         </table>
         <small class="text-muted">
-            <span class="badge bg-warning text-dark">Kuning</span> = mendekati kedaluwarsa (≤3 hari) &nbsp;
-            <span class="badge bg-danger">Merah</span> = sudah kedaluwarsa
+            <span class="badge" style="background-color:#f39c12; color:#000;">Kuning</span> = mendekati kedaluwarsa (≤3 hari) &nbsp;
+            <span class="badge" style="background-color:#c0392b;">Merah</span> = sudah kedaluwarsa
         </small>
     </div>
 </div>
@@ -102,15 +117,12 @@
                         <div class="btn-group w-100 mb-2" role="group">
                             <input type="radio" class="btn-check" name="mode_expired" id="modeTanggal" value="tanggal" checked>
                             <label class="btn btn-outline-secondary" for="modeTanggal">Pilih Tanggal</label>
-
                             <input type="radio" class="btn-check" name="mode_expired" id="modeHari" value="hari">
                             <label class="btn btn-outline-secondary" for="modeHari">Hitung dari Hari</label>
                         </div>
-
                         <div id="inputTanggal">
                             <input type="date" name="tanggal_expired" id="tanggalExpired" class="form-control">
                         </div>
-
                         <div id="inputHari" style="display:none;">
                             <div class="input-group">
                                 <input type="number" id="jumlahHari" class="form-control" min="1" placeholder="Contoh: 7">
@@ -131,7 +143,6 @@
 
 @push('scripts')
 <script>
-    // Toggle mode expired
     document.querySelectorAll('input[name="mode_expired"]').forEach(function(radio) {
         radio.addEventListener('change', function() {
             if (this.value === 'tanggal') {
@@ -148,18 +159,15 @@
         });
     });
 
-    // Hitung tanggal expired dari jumlah hari + tanggal masuk
     document.getElementById('jumlahHari').addEventListener('input', function() {
         const tanggalMasuk = document.querySelector('input[name="tanggal_masuk"]').value;
         if (tanggalMasuk && this.value) {
             const date = new Date(tanggalMasuk);
             date.setDate(date.getDate() + parseInt(this.value));
-            const hasil = date.toISOString().split('T')[0];
-            document.getElementById('tanggalExpired').value = hasil;
+            document.getElementById('tanggalExpired').value = date.toISOString().split('T')[0];
         }
     });
 
-    // Kalau tanggal masuk berubah, recalculate jika mode hari aktif
     document.querySelector('input[name="tanggal_masuk"]').addEventListener('change', function() {
         const hari = document.getElementById('jumlahHari').value;
         const modeHari = document.getElementById('modeHari').checked;

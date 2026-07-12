@@ -61,12 +61,11 @@ class BatchController extends Controller
 
     private function cekNotifikasiExpired(Batch $batch)
     {
-        $hariTersisa = Carbon::now()->diffInDays(Carbon::parse($batch->tanggal_expired), false);
+        $hariTersisa = (int) Carbon::now()->diffInDays(Carbon::parse($batch->tanggal_expired), false);
 
         if ($hariTersisa <= 3 && $hariTersisa >= 0) {
             $managers = \App\Models\User::where('role', 'manager')->get();
             foreach ($managers as $manager) {
-                // Cek duplikasi per hari per batch
                 $sudahAda = Notifikasi::where('user_id', $manager->id)
                     ->where('tipe', 'expired_warning')
                     ->whereDate('created_at', Carbon::today())
@@ -74,10 +73,18 @@ class BatchController extends Controller
                     ->exists();
 
                 if (!$sudahAda) {
+                    if ($hariTersisa == 0) {
+                        $pesanHari = 'hari ini';
+                    } elseif ($hariTersisa == 1) {
+                        $pesanHari = 'besok';
+                    } else {
+                        $pesanHari = 'dalam ' . $hariTersisa . ' hari';
+                    }
+
                     Notifikasi::create([
                         'user_id' => $manager->id,
-                        'judul'   => 'Bahan Mendekati Kedaluwarsa',
-                        'pesan'   => $batch->bahanBaku->nama_bahan . ' (Batch ' . $batch->kode_batch . ') akan kedaluwarsa dalam ' . $hariTersisa . ' hari.',
+                        'judul'   => $hariTersisa == 0 ? 'Bahan Kedaluwarsa Hari Ini' : 'Bahan Mendekati Kedaluwarsa',
+                        'pesan'   => $batch->bahanBaku->nama_bahan . ' (Batch ' . $batch->kode_batch . ') kedaluwarsa ' . $pesanHari . '.',
                         'tipe'    => 'expired_warning',
                         'status'  => 'belum_dibaca',
                     ]);

@@ -30,7 +30,7 @@
                     <td>{{ $loop->iteration }}</td>
                     <td><span class="badge bg-secondary">{{ $fw->batch->kode_batch }}</span></td>
                     <td>{{ $fw->batch->bahanBaku->nama_bahan }}</td>
-                    <td>{{ $fw->jumlah }} {{ $fw->batch->bahanBaku->satuan }}</td>
+                    <td>{{ formatAngka($fw->jumlah) }} {{ $fw->batch->bahanBaku->satuan }}</td>
                     <td>{{ $fw->alasan }}</td>
                     <td>{{ $fw->pelapor->nama }}</td>
                     <td>{{ \Carbon\Carbon::parse($fw->created_at)->format('d/m/Y H:i') }}</td>
@@ -63,7 +63,7 @@
                             @foreach($batch as $b)
                                 <option value="{{ $b->id }}">
                                     {{ $b->kode_batch }} — {{ $b->bahanBaku->nama_bahan }}
-                                    (sisa: {{ $b->qty_sisa }} {{ $b->bahanBaku->satuan }})
+                                    (sisa: {{ formatAngka($b->qty_sisa) }} {{ $b->bahanBaku->satuan }})
                                 </option>
                             @endforeach
                         </select>

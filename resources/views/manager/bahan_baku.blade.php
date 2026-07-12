@@ -36,7 +36,7 @@
                         @endif
                     </td>
                     <td>{{ $bahan->satuan }}</td>
-                    <td>{{ $bahan->stok_minimum }} {{ $bahan->satuan }}</td>
+                    <td>{{ formatAngka($bahan->stok_minimum) }} {{ $bahan->satuan }}</td>
                     <td>
                         <button class="btn btn-sm btn-warning"
                             data-bs-toggle="modal"

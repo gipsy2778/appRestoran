@@ -36,9 +36,7 @@ Route::middleware(['auth', 'role:manager'])->prefix('manager')->name('manager.')
     ]);
 
     // Resep
-    Route::get('/resep', [\App\Http\Controllers\ResepController::class, 'index'])->name('resep.index');
-    Route::post('/resep', [\App\Http\Controllers\ResepController::class, 'store'])->name('resep.store');
-    Route::delete('/resep/{resepDetail}', [\App\Http\Controllers\ResepController::class, 'destroy'])->name('resep.destroy');
+    Route::post('/resep/{menuId}', [\App\Http\Controllers\ResepController::class, 'simpan'])->name('resep.simpan');
 
     // Pengguna
     Route::get('/pengguna', [\App\Http\Controllers\PenggunaController::class, 'index'])->name('pengguna.index');
@@ -59,9 +57,14 @@ Route::middleware(['auth', 'role:manager'])->prefix('manager')->name('manager.')
     Route::get('/notifikasi', [\App\Http\Controllers\NotifikasiController::class, 'index'])->name('notifikasi.index');
     Route::get('/notifikasi/{id}/baca', [\App\Http\Controllers\NotifikasiController::class, 'baca'])->name('notifikasi.baca');
     Route::get('/notifikasi/baca-semua', [\App\Http\Controllers\NotifikasiController::class, 'bacaSemua'])->name('notifikasi.baca-semua');
-    
+    Route::get('/notifikasi/{id}/hapus', [\App\Http\Controllers\NotifikasiController::class, 'hapus'])->name('notifikasi.hapus');
+    Route::get('/notifikasi/hapus-semua', [\App\Http\Controllers\NotifikasiController::class, 'hapusSemua'])->name('notifikasi.hapus-semua');
+
     // Laporan
     Route::get('/laporan', [ManagerController::class, 'laporanIndex'])->name('laporan.index');
+
+    // QR
+    Route::get('/qrcode', [\App\Http\Controllers\MenuPublikController::class, 'qrcode'])->name('qrcode');
 });
 
 // Kasir
@@ -78,6 +81,9 @@ Route::middleware(['auth', 'role:kasir'])->prefix('kasir')->name('kasir.')->grou
     // Menu
     Route::get('/menu', [KasirController::class, 'menuIndex'])->name('menu.index');
 });
+
+// Halaman publik (tanpa login)
+Route::get('/menu-publik', [\App\Http\Controllers\MenuPublikController::class, 'index'])->name('menu.publik');
 
 // Notifikasi fetch (polling)
 Route::middleware('auth')->get('/notifikasi/fetch', [\App\Http\Controllers\NotifikasiController::class, 'fetch']);
