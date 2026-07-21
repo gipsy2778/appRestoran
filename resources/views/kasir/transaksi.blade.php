@@ -43,7 +43,7 @@
                         <a href="{{ route('kasir.transaksi.struk', $t->id) }}" class="btn btn-sm btn-secondary">
                             <i class="bi bi-receipt"></i>
                         </a>
-                        @if($t->status === 'selesai')
+                        @if($t->status === 'selesai' && \Carbon\Carbon::parse($t->created_at)->diffInMinutes(now()) <= 30)
                         <form action="{{ route('kasir.transaksi.batal', $t->id) }}" method="POST" class="d-inline"
                             onsubmit="return confirm('Batalkan transaksi ini? Stok akan dikembalikan.')">
                             @csrf

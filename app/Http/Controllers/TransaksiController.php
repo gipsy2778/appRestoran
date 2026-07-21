@@ -108,6 +108,11 @@ class TransaksiController extends Controller
             return back()->with('error', 'Transaksi sudah dibatalkan sebelumnya.');
         }
 
+        // Cek batas waktu pembatalan (30 menit)
+        if (\Carbon\Carbon::parse($transaksi->created_at)->diffInMinutes(now()) > 30) {
+            return back()->with('error', 'Transaksi tidak dapat dibatalkan karena sudah lebih dari 30 menit.');
+        }
+
         // Rollback stok
         foreach ($transaksi->detail as $detail) {
             $menuItem = Menu::with('resepDetail')->findOrFail($detail->menu_id);
@@ -120,7 +125,7 @@ class TransaksiController extends Controller
         $transaksi->update([
             'status'          => 'dibatalkan',
             'dibatalkan_oleh' => auth()->user()->id,
-            'dibatalkan_at'   => Carbon::now(),
+            'dibatalkan_at'   => \Carbon\Carbon::now(),
         ]);
 
         return back()->with('success', 'Transaksi berhasil dibatalkan dan stok dikembalikan.');
