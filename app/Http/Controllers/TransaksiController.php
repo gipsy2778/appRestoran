@@ -7,6 +7,7 @@ use App\Models\Batch;
 use App\Models\Transaksi;
 use App\Models\TransaksiDetail;
 use App\Models\BahanBaku;
+use App\Models\PemakaianBatch;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 
@@ -61,18 +62,29 @@ class TransaksiController extends Controller
             $totalHarga += $menuItem->harga * $request->qty[$index];
         }
 
-        // Simpan transaksi
+        // Simpan transaksi (total_hpp diisi 0 dulu, diupdate setelah detail dihitung)
         $transaksi = Transaksi::create([
             'kode_transaksi' => $kode,
             'kasir_id'       => auth()->user()->id,
             'total_harga'    => $totalHarga,
+            'total_hpp'      => 0,
             'status'         => 'selesai',
         ]);
 
-        // Simpan detail & potong stok FIFO
+        // Simpan detail & potong stok FIFO sekaligus hitung HPP per baris
+        $totalHppTransaksi = 0;
+
         foreach ($request->menu as $index => $menuId) {
             $qty = $request->qty[$index];
             $menuItem = Menu::with('resepDetail')->findOrFail($menuId);
+
+            // Potong stok FIFO per bahan pada resep, sekaligus akumulasi HPP
+            // dari batch mana saja yang benar-benar dipakai untuk qty menu ini.
+            $hppMenuIni = 0;
+            foreach ($menuItem->resepDetail as $resep) {
+                $kebutuhan = $resep->jumlah * $qty;
+                $hppMenuIni += $this->potongStokFIFO($resep->bahan_id, $kebutuhan, $transaksi->id);
+            }
 
             TransaksiDetail::create([
                 'transaksi_id' => $transaksi->id,
@@ -81,14 +93,13 @@ class TransaksiController extends Controller
                 'harga'        => $menuItem->harga,
                 'qty'          => $qty,
                 'subtotal'     => $menuItem->harga * $qty,
+                'hpp'          => $hppMenuIni,
             ]);
 
-            // Potong stok FIFO per bahan
-            foreach ($menuItem->resepDetail as $resep) {
-                $kebutuhan = $resep->jumlah * $qty;
-                $this->potongStokFIFO($resep->bahan_id, $kebutuhan);
-            }
+            $totalHppTransaksi += $hppMenuIni;
         }
+
+        $transaksi->update(['total_hpp' => $totalHppTransaksi]);
 
         return redirect()->route('kasir.transaksi.struk', $transaksi->id)
             ->with('success', 'Transaksi berhasil disimpan.');
@@ -113,14 +124,23 @@ class TransaksiController extends Controller
             return back()->with('error', 'Transaksi tidak dapat dibatalkan karena sudah lebih dari 30 menit.');
         }
 
-        // Rollback stok
-        foreach ($transaksi->detail as $detail) {
-            $menuItem = Menu::with('resepDetail')->findOrFail($detail->menu_id);
-            foreach ($menuItem->resepDetail as $resep) {
-                $kebutuhan = $resep->jumlah * $detail->qty;
-                $this->rollbackStok($resep->bahan_id, $kebutuhan);
+        // Rollback stok — dikembalikan PERSIS ke batch asalnya berdasarkan catatan pemakaian
+        $pemakaian = PemakaianBatch::where('transaksi_id', $transaksi->id)->get();
+
+        foreach ($pemakaian as $catatan) {
+            $batch = Batch::find($catatan->batch_id);
+            if ($batch) {
+                $batch->qty_sisa += $catatan->qty;
+                if ($batch->qty_sisa > 0) {
+                    $batch->status = 'aktif';
+                }
+                $batch->save();
             }
         }
+
+        // Catatan pemakaian sudah "dipakai" untuk rollback, hapus supaya tidak
+        // ke-rollback dua kali kalau ada bug lain yang memanggil batal() berulang.
+        PemakaianBatch::where('transaksi_id', $transaksi->id)->delete();
 
         $transaksi->update([
             'status'          => 'dibatalkan',
@@ -131,7 +151,14 @@ class TransaksiController extends Controller
         return back()->with('success', 'Transaksi berhasil dibatalkan dan stok dikembalikan.');
     }
 
-    private function potongStokFIFO($bahanId, $kebutuhan)
+    /**
+     * Memotong stok bahan baku secara FIFO (batch dengan tanggal expired terdekat dihabiskan dulu),
+     * sekaligus menghitung total HPP dan MENCATAT persis batch mana + berapa qty yang diambil
+     * (lewat PemakaianBatch), supaya kalau transaksi dibatalkan, rollback bisa akurat per batch.
+     *
+     * @return float Total biaya (HPP) untuk kebutuhan yang dipotong dari batch-batch ini.
+     */
+    private function potongStokFIFO($bahanId, $kebutuhan, $transaksiId)
     {
         $batches = Batch::where('bahan_id', $bahanId)
             ->where('status', 'aktif')
@@ -139,16 +166,30 @@ class TransaksiController extends Controller
             ->orderBy('tanggal_expired', 'asc')
             ->get();
 
+        $totalHpp = 0;
+
         foreach ($batches as $batch) {
             if ($kebutuhan <= 0) break;
 
             if ($batch->qty_sisa >= $kebutuhan) {
+                $qtyTerpakai = $kebutuhan;
                 $batch->qty_sisa -= $kebutuhan;
                 $kebutuhan = 0;
             } else {
+                $qtyTerpakai = $batch->qty_sisa;
                 $kebutuhan -= $batch->qty_sisa;
                 $batch->qty_sisa = 0;
             }
+
+            $totalHpp += $qtyTerpakai * $batch->harga_beli;
+
+            // Catat persis: transaksi ini mengambil $qtyTerpakai dari batch ini.
+            PemakaianBatch::create([
+                'transaksi_id' => $transaksiId,
+                'batch_id'     => $batch->id,
+                'bahan_id'     => $bahanId,
+                'qty'          => $qtyTerpakai,
+            ]);
 
             if ($batch->qty_sisa == 0) {
                 $batch->status = 'habis';
@@ -160,21 +201,7 @@ class TransaksiController extends Controller
         // Cek notifikasi stok minimum
         $bahan = BahanBaku::findOrFail($bahanId);
         BatchController::cekNotifikasiStokMinimum($bahan);
-    }
 
-    private function rollbackStok($bahanId, $jumlah)
-    {
-        // Kembalikan ke batch terbaru yang masih aktif atau habis
-        $batch = Batch::where('bahan_id', $bahanId)
-            ->orderBy('tanggal_expired', 'asc')
-            ->first();
-
-        if ($batch) {
-            $batch->qty_sisa += $jumlah;
-            if ($batch->qty_sisa > 0) {
-                $batch->status = 'aktif';
-            }
-            $batch->save();
-        }
+        return $totalHpp;
     }
 }

@@ -25,6 +25,7 @@
                     <th>Bahan</th>
                     <th>Qty Awal</th>
                     <th>Qty Sisa</th>
+                    <th>Harga Beli</th>
                     <th>Tgl Masuk</th>
                     <th>Tgl Expired</th>
                     <th>Status</th>
@@ -49,6 +50,7 @@
                     <td>{{ $b->bahanBaku->nama_bahan }}</td>
                     <td>{{ formatAngka($b->qty_awal) }} {{ $b->bahanBaku->satuan }}</td>
                     <td>{{ formatAngka($b->qty_sisa) }} {{ $b->bahanBaku->satuan }}</td>
+                    <td>Rp {{ number_format($b->harga_beli, 0, ',', '.') }} / {{ $b->bahanBaku->satuan }}</td>
                     <td>{{ \Carbon\Carbon::parse($b->tanggal_masuk)->format('d/m/Y') }}</td>
                     <td>{{ \Carbon\Carbon::parse($b->tanggal_expired)->format('d/m/Y') }}</td>
                     <td>
@@ -105,7 +107,25 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Jumlah</label>
-                        <input type="number" name="qty_awal" class="form-control" step="0.01" min="0.01" required>
+                        <input type="number" name="qty_awal" id="qtyAwal" class="form-control" step="0.01" min="0.01" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Cara Input Harga</label>
+                        <div class="btn-group w-100 mb-2" role="group">
+                            <input type="radio" class="btn-check" name="mode_harga" id="modeHargaTotal" value="total" checked>
+                            <label class="btn btn-outline-secondary" for="modeHargaTotal">Harga Total</label>
+                            <input type="radio" class="btn-check" name="mode_harga" id="modeHargaSatuan" value="satuan">
+                            <label class="btn btn-outline-secondary" for="modeHargaSatuan">Harga Satuan</label>
+                        </div>
+                        <div class="input-group">
+                            <span class="input-group-text">Rp</span>
+                            <input type="number" name="harga_input" id="hargaInput" class="form-control"
+                                step="0.01" min="0" placeholder="Contoh: 350000" required>
+                        </div>
+                        <small class="text-muted" id="hargaHelpText">
+                            Masukkan total harga yang dibayar untuk seluruh jumlah bahan pada batch ini (sesuai nota belanja). Sistem otomatis membagi rata ke harga per satuan.
+                        </small>
+                        <div class="mt-1 fw-semibold text-primary small" id="hargaPreview" style="display:none;"></div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Tanggal Masuk</label>
@@ -143,6 +163,44 @@
 
 @push('scripts')
 <script>
+    const modeHargaRadios = document.querySelectorAll('input[name="mode_harga"]');
+    const hargaInput = document.getElementById('hargaInput');
+    const qtyAwal = document.getElementById('qtyAwal');
+    const hargaHelpText = document.getElementById('hargaHelpText');
+    const hargaPreview = document.getElementById('hargaPreview');
+
+    function updateHargaMode() {
+        const mode = document.querySelector('input[name="mode_harga"]:checked').value;
+        if (mode === 'total') {
+            hargaInput.placeholder = 'Contoh: 350000';
+            hargaHelpText.textContent = 'Masukkan total harga yang dibayar untuk seluruh jumlah bahan pada batch ini (sesuai nota belanja). Sistem otomatis membagi rata ke harga per satuan.';
+        } else {
+            hargaInput.placeholder = 'Contoh: 35000';
+            hargaHelpText.textContent = 'Masukkan harga beli per satuan bahan (mis. per kg/liter/pcs) untuk batch ini.';
+        }
+        updatePreview();
+    }
+
+    function updatePreview() {
+        const mode = document.querySelector('input[name="mode_harga"]:checked').value;
+        const harga = parseFloat(hargaInput.value);
+        const qty = parseFloat(qtyAwal.value);
+
+        if (mode === 'total' && harga > 0 && qty > 0) {
+            const perSatuan = harga / qty;
+            hargaPreview.style.display = 'block';
+            hargaPreview.textContent = '≈ Rp ' + perSatuan.toLocaleString('id-ID', {maximumFractionDigits: 2}) + ' / satuan';
+        } else {
+            hargaPreview.style.display = 'none';
+        }
+    }
+
+    modeHargaRadios.forEach(function(radio) {
+        radio.addEventListener('change', updateHargaMode);
+    });
+    hargaInput.addEventListener('input', updatePreview);
+    qtyAwal.addEventListener('input', updatePreview);
+
     document.querySelectorAll('input[name="mode_expired"]').forEach(function(radio) {
         radio.addEventListener('change', function() {
             if (this.value === 'tanggal') {

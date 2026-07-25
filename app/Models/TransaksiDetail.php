@@ -15,6 +15,7 @@ class TransaksiDetail extends Model
         'harga',
         'qty',
         'subtotal',
+        'hpp',
     ];
 
     public function transaksi()

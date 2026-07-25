@@ -1,6 +1,10 @@
 @php $role = auth()->user()->role; @endphp
 
 @if($role === 'manager')
+    <a href="{{ route('manager.dashboard') }}" class="{{ request()->routeIs('manager.dashboard') ? 'active' : '' }}">
+        <i class="bi bi-speedometer2 me-2"></i> Dashboard
+    </a>
+    
     <div class="sidebar-heading">Master Data</div>
     <a href="{{ route('manager.bahan-baku.index') }}" class="{{ request()->routeIs('manager.bahan-baku.*') ? 'active' : '' }}">
         <i class="bi bi-basket me-2"></i> Bahan Baku
@@ -23,6 +27,9 @@
     <div class="sidebar-heading">Monitoring</div>
     <a href="{{ route('manager.notifikasi.index') }}" class="{{ request()->routeIs('manager.notifikasi.*') ? 'active' : '' }}">
         <i class="bi bi-bell me-2"></i> Notifikasi
+    </a>
+    <a href="{{ route('manager.riwayat.index') }}" class="{{ request()->routeIs('manager.riwayat.*') ? 'active' : '' }}">
+        <i class="bi bi-clock-history me-2"></i> Riwayat
     </a>
     <a href="{{ route('manager.laporan.index') }}" class="{{ request()->routeIs('manager.laporan.*') ? 'active' : '' }}">
         <i class="bi bi-bar-chart me-2"></i> Laporan

@@ -60,8 +60,11 @@ Route::middleware(['auth', 'role:manager'])->prefix('manager')->name('manager.')
     Route::get('/notifikasi/{id}/hapus', [\App\Http\Controllers\NotifikasiController::class, 'hapus'])->name('notifikasi.hapus');
     Route::get('/notifikasi/hapus-semua', [\App\Http\Controllers\NotifikasiController::class, 'hapusSemua'])->name('notifikasi.hapus-semua');
 
-    // Laporan
-    Route::get('/laporan', [ManagerController::class, 'laporanIndex'])->name('laporan.index');
+    // Riwayat (data mentah/log)
+    Route::get('/riwayat', [ManagerController::class, 'riwayatIndex'])->name('riwayat.index');
+
+    // Laporan (analitik untuk pengambilan keputusan)
+    Route::get('/laporan', [ManagerController::class, 'laporanAnalitik'])->name('laporan.index');
 
     // QR
     Route::get('/qrcode', [\App\Http\Controllers\MenuPublikController::class, 'qrcode'])->name('qrcode');

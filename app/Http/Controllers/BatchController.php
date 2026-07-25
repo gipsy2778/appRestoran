@@ -22,9 +22,20 @@ class BatchController extends Controller
         $request->validate([
             'bahan_id'         => 'required|exists:bahan_baku,id',
             'qty_awal'         => 'required|numeric|min:0.01',
+            'mode_harga'       => 'required|in:total,satuan',
+            'harga_input'      => 'required|numeric|min:0',
             'tanggal_masuk'    => 'required|date',
             'tanggal_expired'  => 'required|date|after:tanggal_masuk',
         ]);
+
+        // Hitung harga beli PER SATUAN, apapun mode input yang dipilih user.
+        // Kolom 'harga_beli' di database selalu menyimpan harga per satuan,
+        // supaya perhitungan HPP tidak perlu tahu mode input mana yang tadinya dipakai.
+        if ($request->mode_harga === 'total') {
+            $hargaBeli = $request->harga_input / $request->qty_awal;
+        } else {
+            $hargaBeli = $request->harga_input;
+        }
 
         $bahan = BahanBaku::findOrFail($request->bahan_id);
 
@@ -41,6 +52,7 @@ class BatchController extends Controller
             'kode_batch'      => $kode_batch,
             'qty_awal'        => $request->qty_awal,
             'qty_sisa'        => $request->qty_awal,
+            'harga_beli'      => round($hargaBeli, 2),
             'tanggal_masuk'   => $request->tanggal_masuk,
             'tanggal_expired' => $request->tanggal_expired,
             'status'          => 'aktif',

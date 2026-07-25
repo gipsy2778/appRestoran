@@ -13,6 +13,7 @@ class Batch extends Model
         'kode_batch',
         'qty_awal',
         'qty_sisa',
+        'harga_beli',
         'tanggal_masuk',
         'tanggal_expired',
         'status',
@@ -32,5 +33,10 @@ class Batch extends Model
     public function foodWastage()
     {
         return $this->hasMany(FoodWastage::class, 'batch_id');
+    }
+
+    public function pemakaian()
+    {
+        return $this->hasMany(PemakaianBatch::class, 'batch_id');
     }
 }

@@ -12,6 +12,7 @@ class Transaksi extends Model
         'kode_transaksi',
         'kasir_id',
         'total_harga',
+        'total_hpp',
         'status',
         'dibatalkan_oleh',
         'dibatalkan_at',
@@ -30,5 +31,10 @@ class Transaksi extends Model
     public function detail()
     {
         return $this->hasMany(TransaksiDetail::class, 'transaksi_id');
+    }
+
+    public function pemakaianBatch()
+    {
+        return $this->hasMany(PemakaianBatch::class, 'transaksi_id');
     }
 }

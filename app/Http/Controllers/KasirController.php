@@ -6,8 +6,17 @@ class KasirController extends Controller
 {
     public function dashboard()
     {
-        return view('kasir.dashboard');
-    }   
+        $today = \Carbon\Carbon::today();
+
+        $transaksiSaya = \App\Models\Transaksi::where('kasir_id', auth()->id())
+            ->where('status', 'selesai')
+            ->whereDate('created_at', $today);
+
+        $jumlahTransaksiSaya = (clone $transaksiSaya)->count();
+        $pendapatanSaya = (clone $transaksiSaya)->sum('total_harga');
+
+        return view('kasir.dashboard', compact('jumlahTransaksiSaya', 'pendapatanSaya'));
+    }
 
     public function menuIndex()
     {
