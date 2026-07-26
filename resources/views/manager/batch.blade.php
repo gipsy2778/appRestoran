@@ -15,6 +15,50 @@
     </button>
 </div>
 
+<div class="card shadow-sm mb-3">
+    <div class="card-body">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label small text-muted mb-1">Cari</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                    <input type="text" id="searchBatch" class="form-control" placeholder="Kode batch atau nama bahan...">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small text-muted mb-1">Bahan Baku</label>
+                <select id="filterBahan" class="form-select">
+                    <option value="">Semua Bahan</option>
+                    @foreach($bahanBaku as $bb)
+                        <option value="{{ strtolower($bb->nama_bahan) }}">{{ $bb->nama_bahan }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small text-muted mb-1">Status Stok</label>
+                <div class="btn-group w-100" role="group">
+                    <input type="radio" class="btn-check" name="filterStatus" id="statusAda" value="ada" checked>
+                    <label class="btn btn-outline-secondary btn-sm" for="statusAda">Masih Ada</label>
+
+                    <input type="radio" class="btn-check" name="filterStatus" id="statusKosong" value="kosong">
+                    <label class="btn btn-outline-secondary btn-sm" for="statusKosong">Kosong</label>
+
+                    <input type="radio" class="btn-check" name="filterStatus" id="statusSemua" value="semua">
+                    <label class="btn btn-outline-secondary btn-sm" for="statusSemua">Semua</label>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="form-check mt-2">
+                    <input class="form-check-input" type="checkbox" id="filterExpiringSoon">
+                    <label class="form-check-label small" for="filterExpiringSoon">
+                        Mendekati kedaluwarsa saja
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="card shadow-sm">
     <div class="card-body">
         <table class="table align-middle">
@@ -32,19 +76,26 @@
                     <th>Aksi</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="batchTableBody">
                 @forelse($batch as $b)
                 @php
                     $hariTersisa = (int) \Carbon\Carbon::now()->diffInDays(\Carbon\Carbon::parse($b->tanggal_expired), false);
                     if ($hariTersisa < 0) {
                         $rowClass = 'row-expired';
+                        $isExpiringSoon = true;
                     } elseif ($hariTersisa <= 3) {
                         $rowClass = 'row-warning';
+                        $isExpiringSoon = true;
                     } else {
                         $rowClass = '';
+                        $isExpiringSoon = false;
                     }
                 @endphp
-                <tr class="{{ $rowClass }}">
+                <tr class="{{ $rowClass }}"
+                    data-status="{{ $b->status }}"
+                    data-bahan="{{ strtolower($b->bahanBaku->nama_bahan) }}"
+                    data-kode="{{ strtolower($b->kode_batch) }}"
+                    data-expiring="{{ $isExpiringSoon ? '1' : '0' }}">
                     <td>{{ $loop->iteration }}</td>
                     <td><span class="badge bg-secondary">{{ $b->kode_batch }}</span></td>
                     <td>{{ $b->bahanBaku->nama_bahan }}</td>
@@ -73,11 +124,14 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="9" class="text-center text-muted">Belum ada data batch</td>
+                    <td colspan="10" class="text-center text-muted">Belum ada data batch</td>
                 </tr>
                 @endforelse
             </tbody>
         </table>
+        <div id="noResultRow" class="text-center text-muted py-3" style="display:none;">
+            <i class="bi bi-inbox me-1"></i> Tidak ada batch yang cocok dengan filter ini
+        </div>
         <small class="text-muted">
             <span class="badge" style="background-color:#f39c12; color:#000;">Kuning</span> = mendekati kedaluwarsa (≤3 hari) &nbsp;
             <span class="badge" style="background-color:#c0392b;">Merah</span> = sudah kedaluwarsa
@@ -163,6 +217,52 @@
 
 @push('scripts')
 <script>
+    function applyBatchFilter() {
+        const keyword = document.getElementById('searchBatch').value.toLowerCase().trim();
+        const bahanFilter = document.getElementById('filterBahan').value;
+        const statusFilter = document.querySelector('input[name="filterStatus"]:checked').value;
+        const expiringOnly = document.getElementById('filterExpiringSoon').checked;
+
+        const rows = document.querySelectorAll('#batchTableBody tr[data-status]');
+        let visibleCount = 0;
+
+        rows.forEach(function(row) {
+            const status = row.getAttribute('data-status');
+            const bahan = row.getAttribute('data-bahan');
+            const kode = row.getAttribute('data-kode');
+            const isExpiring = row.getAttribute('data-expiring') === '1';
+
+            let show = true;
+
+            // Filter status stok
+            if (statusFilter === 'ada' && status !== 'aktif') show = false;
+            if (statusFilter === 'kosong' && status !== 'habis') show = false;
+
+            // Filter bahan baku
+            if (bahanFilter && bahan !== bahanFilter) show = false;
+
+            // Filter mendekati kedaluwarsa
+            if (expiringOnly && !isExpiring) show = false;
+
+            // Filter pencarian (kode batch atau nama bahan)
+            if (keyword && !kode.includes(keyword) && !bahan.includes(keyword)) show = false;
+
+            row.style.display = show ? '' : 'none';
+            if (show) visibleCount++;
+        });
+
+        document.getElementById('noResultRow').style.display = (visibleCount === 0 && rows.length > 0) ? '' : 'none';
+    }
+
+    document.getElementById('searchBatch').addEventListener('input', applyBatchFilter);
+    document.getElementById('filterBahan').addEventListener('change', applyBatchFilter);
+    document.getElementById('filterExpiringSoon').addEventListener('change', applyBatchFilter);
+    document.querySelectorAll('input[name="filterStatus"]').forEach(function(radio) {
+        radio.addEventListener('change', applyBatchFilter);
+    });
+
+    document.addEventListener('DOMContentLoaded', applyBatchFilter);
+
     const modeHargaRadios = document.querySelectorAll('input[name="mode_harga"]');
     const hargaInput = document.getElementById('hargaInput');
     const qtyAwal = document.getElementById('qtyAwal');

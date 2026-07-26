@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Batch;
 use App\Models\BahanBaku;
 use App\Models\Notifikasi;
+use App\Models\FoodWastage;
+use App\Models\PemakaianBatch;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 
@@ -67,6 +69,20 @@ class BatchController extends Controller
 
     public function destroy(Batch $batch)
     {
+        // Jangan izinkan hapus batch yang sudah punya riwayat pemakaian (transaksi)
+        // atau food wastage — kalau tetap dihapus, riwayat itu akan ikut hilang
+        // permanen (data historis untuk laporan bisa rusak).
+        $punyaRiwayatTransaksi = PemakaianBatch::where('batch_id', $batch->id)->exists();
+        $punyaRiwayatWastage = FoodWastage::where('batch_id', $batch->id)->exists();
+
+        if ($punyaRiwayatTransaksi || $punyaRiwayatWastage) {
+            return back()->with('error',
+                'Batch ' . $batch->kode_batch . ' tidak bisa dihapus karena sudah punya riwayat pemakaian/food wastage. ' .
+                'Data ini disimpan untuk keakuratan laporan. Gunakan filter "Sembunyikan yang sudah habis" ' .
+                'kalau cuma ingin merapikan tampilan.'
+            );
+        }
+
         $batch->delete();
         return back()->with('success', 'Batch berhasil dihapus.');
     }

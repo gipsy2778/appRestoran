@@ -1,5 +1,11 @@
 @php $role = auth()->user()->role; @endphp
 
+<div class="sidebar-brand">
+    <p class="brand-name mb-1">Cipanas Indah</p>
+    <span class="brand-tag">{{ $role === 'manager' ? 'Panel Admin' : 'Panel Kasir' }}</span>
+</div>
+
+<div class="sidebar-nav">
 @if($role === 'manager')
     <a href="{{ route('manager.dashboard') }}" class="{{ request()->routeIs('manager.dashboard') ? 'active' : '' }}">
         <i class="bi bi-speedometer2 me-2"></i> Dashboard
@@ -49,3 +55,4 @@
         <i class="bi bi-menu-button-wide me-2"></i> Menu
     </a>
 @endif
+</div>
