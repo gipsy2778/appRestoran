@@ -10,6 +10,50 @@
     </button>
 </div>
 
+<div class="card shadow-sm mb-3">
+    <div class="card-body">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label small text-muted mb-1">Cari</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                    <input type="text" id="searchBahan" class="form-control" placeholder="Nama bahan...">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small text-muted mb-1">Satuan</label>
+                <select id="filterSatuan" class="form-select">
+                    <option value="">Semua Satuan</option>
+                    @foreach($bahanBaku->pluck('satuan')->unique()->sort() as $satuan)
+                        <option value="{{ strtolower($satuan) }}">{{ ucfirst($satuan) }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small text-muted mb-1">Jenis</label>
+                <div class="btn-group w-100" role="group">
+                    <input type="radio" class="btn-check" name="filterJenis" id="jenisSemua" value="semua" checked>
+                    <label class="btn btn-outline-secondary btn-sm" for="jenisSemua">Semua</label>
+
+                    <input type="radio" class="btn-check" name="filterJenis" id="jenisMudahRusak" value="mudah_rusak">
+                    <label class="btn btn-outline-secondary btn-sm" for="jenisMudahRusak">Mudah Rusak</label>
+
+                    <input type="radio" class="btn-check" name="filterJenis" id="jenisTahanLama" value="tahan_lama">
+                    <label class="btn btn-outline-secondary btn-sm" for="jenisTahanLama">Tahan Lama</label>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="form-check mt-2">
+                    <input class="form-check-input" type="checkbox" id="filterKritis">
+                    <label class="form-check-label small" for="filterKritis">
+                        Stok kritis saja
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="card shadow-sm">
     <div class="card-body">
         <table class="table table-hover align-middle">
@@ -19,13 +63,18 @@
                     <th>Nama Bahan</th>
                     <th>Jenis</th>
                     <th>Satuan</th>
+                    <th>Stok Saat Ini</th>
                     <th>Stok Minimum</th>
                     <th>Aksi</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="bahanTableBody">
                 @forelse($bahanBaku as $bahan)
-                <tr>
+                @php $kritis = $bahan->stok_total <= $bahan->stok_minimum; @endphp
+                <tr data-nama="{{ strtolower($bahan->nama_bahan) }}"
+                    data-satuan="{{ strtolower($bahan->satuan) }}"
+                    data-jenis="{{ $bahan->jenis }}"
+                    data-kritis="{{ $kritis ? '1' : '0' }}">
                     <td>{{ $loop->iteration }}</td>
                     <td>{{ $bahan->nama_bahan }}</td>
                     <td>
@@ -36,6 +85,14 @@
                         @endif
                     </td>
                     <td>{{ $bahan->satuan }}</td>
+                    <td>
+                        <span class="{{ $kritis ? 'text-danger fw-semibold' : '' }}">
+                            {{ formatAngka($bahan->stok_total) }} {{ $bahan->satuan }}
+                        </span>
+                        @if($kritis)
+                            <i class="bi bi-exclamation-triangle-fill text-danger ms-1" title="Stok kritis"></i>
+                        @endif
+                    </td>
                     <td>{{ formatAngka($bahan->stok_minimum) }} {{ $bahan->satuan }}</td>
                     <td>
                         <button class="btn btn-sm btn-warning"
@@ -60,11 +117,14 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="6" class="text-center text-muted">Belum ada data bahan baku</td>
+                    <td colspan="7" class="text-center text-muted">Belum ada data bahan baku</td>
                 </tr>
                 @endforelse
             </tbody>
         </table>
+        <div id="noResultBahan" class="text-center text-muted py-3" style="display:none;">
+            <i class="bi bi-inbox me-1"></i> Tidak ada bahan yang cocok dengan filter ini
+        </div>
     </div>
 </div>
 
@@ -164,6 +224,42 @@
 
 @push('scripts')
 <script>
+    function applyBahanFilter() {
+        const keyword = document.getElementById('searchBahan').value.toLowerCase().trim();
+        const satuanFilter = document.getElementById('filterSatuan').value;
+        const jenisFilter = document.querySelector('input[name="filterJenis"]:checked').value;
+        const kritisOnly = document.getElementById('filterKritis').checked;
+
+        const rows = document.querySelectorAll('#bahanTableBody tr[data-nama]');
+        let visibleCount = 0;
+
+        rows.forEach(function(row) {
+            const nama = row.getAttribute('data-nama');
+            const satuan = row.getAttribute('data-satuan');
+            const jenis = row.getAttribute('data-jenis');
+            const isKritis = row.getAttribute('data-kritis') === '1';
+
+            let show = true;
+
+            if (keyword && !nama.includes(keyword)) show = false;
+            if (satuanFilter && satuan !== satuanFilter) show = false;
+            if (jenisFilter !== 'semua' && jenis !== jenisFilter) show = false;
+            if (kritisOnly && !isKritis) show = false;
+
+            row.style.display = show ? '' : 'none';
+            if (show) visibleCount++;
+        });
+
+        document.getElementById('noResultBahan').style.display = (visibleCount === 0 && rows.length > 0) ? '' : 'none';
+    }
+
+    document.getElementById('searchBahan').addEventListener('input', applyBahanFilter);
+    document.getElementById('filterSatuan').addEventListener('change', applyBahanFilter);
+    document.getElementById('filterKritis').addEventListener('change', applyBahanFilter);
+    document.querySelectorAll('input[name="filterJenis"]').forEach(function(radio) {
+        radio.addEventListener('change', applyBahanFilter);
+    });
+
     document.getElementById('modalEdit').addEventListener('show.bs.modal', function(e) {
         const btn = e.relatedTarget;
         document.getElementById('editNama').value = btn.dataset.nama;

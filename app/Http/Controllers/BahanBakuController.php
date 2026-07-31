@@ -9,7 +9,13 @@ class BahanBakuController extends Controller
 {
     public function index()
     {
-        $bahanBaku = BahanBaku::all();
+        $bahanBaku = BahanBaku::with(['batch' => function ($q) {
+            $q->where('status', 'aktif');
+        }])->get()->map(function ($bahan) {
+            $bahan->stok_total = $bahan->batch->sum('qty_sisa');
+            return $bahan;
+        });
+
         return view('manager.bahan_baku', compact('bahanBaku'));
     }
 
@@ -41,6 +47,20 @@ class BahanBakuController extends Controller
 
     public function destroy(BahanBaku $bahanBaku)
     {
+        $punyaBatch = \App\Models\Batch::where('bahan_id', $bahanBaku->id)->exists();
+        $dipakaiResep = \App\Models\ResepDetail::where('bahan_id', $bahanBaku->id)->exists();
+
+        if ($punyaBatch || $dipakaiResep) {
+            $alasan = [];
+            if ($punyaBatch) $alasan[] = 'sudah punya riwayat batch/stok';
+            if ($dipakaiResep) $alasan[] = 'masih dipakai di resep menu';
+
+            return back()->with('error',
+                'Bahan "' . $bahanBaku->nama_bahan . '" tidak bisa dihapus karena ' . implode(' dan ', $alasan) . '. ' .
+                'Hapus dulu batch/resep terkait, atau biarkan saja kalau memang masih dipakai.'
+            );
+        }
+
         $bahanBaku->delete();
         return back()->with('success', 'Bahan baku berhasil dihapus.');
     }
